@@ -1399,7 +1399,7 @@ body {
                         <div class="video-stats">
                             <span>
                                 <i class="fas fa-eye"></i>
-                                <?= number_format($v['visualizacoes']) ?> views
+                                10<?= number_format($v['visualizacoes']) ?> views
                             </span>
 
                             <span class="online-badge">
@@ -1435,7 +1435,7 @@ body {
                                 class="action-btn btn-buy"
                             >
                                 <i class="fas fa-paper-plane"></i>
-                                Send Message — $<?= number_format($v['preco'], 2) ?>
+                                Pay Now — $<?= number_format($v['preco'], 2) ?>
                             </a>
 
                             <?php /*
