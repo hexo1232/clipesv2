@@ -684,6 +684,96 @@ body {
     transition: transform 0.35s ease, opacity 0.35s ease;
 }
 
+.preview-zone {
+    cursor: pointer;
+}
+
+.inline-preview-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1.04);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+    z-index: 1;
+    background: #000;
+}
+
+.preview-cover {
+    position: relative;
+    z-index: 0;
+}
+
+.preview-zone.preview-playing .inline-preview-video {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.preview-zone.preview-playing .preview-cover {
+    opacity: 0;
+}
+
+.video-overlay {
+    z-index: 2;
+    pointer-events: none;
+}
+
+.quality-badge,
+.price-badge,
+.duration-badge {
+    z-index: 4;
+}
+
+.preview-hint {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 5;
+    transform: translate(-50%, -50%) scale(0.92);
+    min-width: 112px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.72);
+    border: 1px solid rgba(255,255,255,0.20);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-weight: 900;
+    opacity: 0;
+    transition: 0.22s ease;
+    pointer-events: none;
+}
+
+.preview-zone:hover .preview-hint {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.preview-zone.preview-playing .preview-hint {
+    opacity: 0;
+}
+
+.preview-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border: 2px solid transparent;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: border-color 0.22s ease;
+}
+
+.preview-zone:hover::after {
+    border-color: rgba(229,9,20,0.65);
+}
+
 .video-card:hover .video-thumbnail {
     transform: scale(1.08);
     opacity: 0.76;
@@ -1435,40 +1525,63 @@ $link_telegram = $telegramBase . "?text=" . $mensagem_telegram;
 // Versão segura para usar dentro do JavaScript
 $link_telegram_js = json_encode($link_telegram, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $nome_video_js    = json_encode($v['nome_video'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+$caminho_previa_js = json_encode(
+    $v['caminho_previa'] ?? '',
+    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+);
                 ?>
 
                 <article class="video-card">
-                    <div class="video-thumbnail-wrapper">
-                        <?php if (!empty($v['caminho_imagem'])): ?>
-                            <img
-                                src="<?= htmlspecialchars($v['caminho_imagem']) ?>"
-                                class="video-thumbnail"
-                                alt="<?= htmlspecialchars($v['nome_video']) ?>"
-                                loading="lazy"
-                            >
-                        <?php else: ?>
-                            <div class="no-thumb">
-                                <i class="fas fa-film"></i>
-                            </div>
-                        <?php endif; ?>
+                    <div
+    class="video-thumbnail-wrapper preview-zone"
+    data-id-video="<?= (int)$v['id_video'] ?>"
+    data-preview='<?= htmlspecialchars($v['caminho_previa'] ?? '', ENT_QUOTES, 'UTF-8') ?>'
+    onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
+>
+    <?php if (!empty($v['caminho_imagem'])): ?>
+        <img
+            src="<?= htmlspecialchars($v['caminho_imagem']) ?>"
+            class="video-thumbnail preview-cover"
+            alt="<?= htmlspecialchars($v['nome_video']) ?>"
+            loading="lazy"
+        >
+    <?php else: ?>
+        <div class="no-thumb preview-cover">
+            <i class="fas fa-film"></i>
+        </div>
+    <?php endif; ?>
 
-                        <div class="video-overlay"></div>
+    <video
+        class="inline-preview-video"
+        muted
+        loop
+        playsinline
+        preload="metadata"
+    ></video>
 
-                        <div class="quality-badge">
-                            <i class="fas fa-crown"></i> PREMIUM
-                        </div>
+    <div class="video-overlay"></div>
 
-                        <div class="price-badge">
-                            $<?= number_format($v['preco'], 2) ?>
-                        </div>
+    <div class="preview-hint">
+        <i class="fas fa-play"></i>
+        Preview
+    </div>
 
-                        <?php if (!empty($v['duracao'])): ?>
-                            <div class="duration-badge">
-                                <i class="far fa-clock"></i>
-                                <?= htmlspecialchars($v['duracao']) ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
+    <div class="quality-badge">
+        <i class="fas fa-crown"></i> PREMIUM
+    </div>
+
+    <div class="price-badge">
+        $<?= number_format($v['preco'], 2) ?>
+    </div>
+
+    <?php if (!empty($v['duracao'])): ?>
+        <div class="duration-badge">
+            <i class="far fa-clock"></i>
+            <?= htmlspecialchars($v['duracao']) ?>
+        </div>
+    <?php endif; ?>
+</div>
 
                     <div class="video-info">
                         <h3 class="video-title">
@@ -1499,12 +1612,13 @@ $nome_video_js    = json_encode($v['nome_video'], JSON_UNESCAPED_SLASHES | JSON_
 
                         <div class="action-buttons">
                             <div class="action-row">
-                                <button
-                                    onclick="abrirPreview(<?= $v['id_video'] ?>, '<?= addslashes($v['caminho_previa']) ?>')"
-                                    class="action-btn btn-preview"
-                                >
-                                    <i class="far fa-play-circle"></i> Preview
-                                </button>
+<button
+    type="button"
+    onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
+    class="action-btn btn-preview"
+>
+    <i class="far fa-play-circle"></i> Preview
+</button>
 
                                 <a
                                     href="<?= $link_telegram ?>"
@@ -1552,9 +1666,18 @@ $nome_video_js    = json_encode($v['nome_video'], JSON_UNESCAPED_SLASHES | JSON_
     <div class="modal-content">
         <span class="close-modal" onclick="fecharPreview()">&times;</span>
 
-        <video id="videoPreview" class="video-player" controls playsinline>
-            <source id="videoSource" src="" type="video/mp4">
-        </video>
+        <video
+            id="videoPreview"
+            class="video-player"
+            controls
+            playsinline
+            preload="metadata"
+        ></video>
+
+        <div id="preview-error" style="display:none;padding:18px;color:#ff7b84;text-align:center;font-weight:800;">
+            <i class="fas fa-circle-exclamation"></i>
+            Preview unavailable. Please try again later.
+        </div>
     </div>
 </div>
 
@@ -1754,17 +1877,24 @@ filterToggle.addEventListener('click', function () {
 });
 
 // ── Preview modal ──
-function abrirPreview(idVideo, caminho) {
-    if (!caminho || caminho === 'null' || caminho === 'undefined') {
-        alert('Preview unavailable for this video.');
-        return;
+function normalizarCaminhoVideo(caminho) {
+    if (!caminho) return '';
+
+    const limpo = String(caminho).trim();
+
+    if (
+        !limpo ||
+        limpo === 'null' ||
+        limpo === 'undefined' ||
+        limpo === '#'
+    ) {
+        return '';
     }
 
-    document.getElementById('modalPreview').style.display = 'block';
-    document.getElementById('videoSource').src = caminho;
-    document.getElementById('videoPreview').load();
-    document.body.style.overflow = 'hidden';
+    return limpo;
+}
 
+function registrarVisualizacao(idVideo) {
     const fd = new FormData();
     fd.append('registrar_visualizacao', '1');
     fd.append('id_video', idVideo);
@@ -1775,16 +1905,148 @@ function abrirPreview(idVideo, caminho) {
     }).catch(err => console.error('View register error:', err));
 }
 
-function fecharPreview() {
-    document.getElementById('modalPreview').style.display = 'none';
+function abrirPreview(idVideo, caminho) {
+    const caminhoLimpo = normalizarCaminhoVideo(caminho);
 
+    if (!caminhoLimpo) {
+        alert('Preview unavailable for this video.');
+        return;
+    }
+
+    pararPreviewsInline();
+
+    const modal = document.getElementById('modalPreview');
     const player = document.getElementById('videoPreview');
+    const errorBox = document.getElementById('preview-error');
+
+    errorBox.style.display = 'none';
+    player.style.display = 'block';
 
     player.pause();
-    player.currentTime = 0;
+    player.removeAttribute('src');
+    player.load();
+
+    console.log('Preview modal path:', caminhoLimpo);
+
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    player.src = caminhoLimpo;
+    player.load();
+
+    player.oncanplay = function () {
+        player.play().catch(function (err) {
+            console.warn('Preview autoplay blocked:', err);
+        });
+    };
+
+    player.onerror = function () {
+        console.error('Preview load error:', caminhoLimpo);
+        player.style.display = 'none';
+        errorBox.style.display = 'block';
+    };
+
+    registrarVisualizacao(idVideo);
+}
+
+function fecharPreview() {
+    const modal = document.getElementById('modalPreview');
+    const player = document.getElementById('videoPreview');
+    const errorBox = document.getElementById('preview-error');
+
+    modal.style.display = 'none';
+
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+
+    errorBox.style.display = 'none';
+    player.style.display = 'block';
 
     document.body.style.overflow = 'auto';
 }
+
+let inlinePreviewTimer = null;
+let currentInlinePreview = null;
+
+function pararPreviewsInline() {
+    document.querySelectorAll('.preview-zone').forEach(zone => {
+        const video = zone.querySelector('.inline-preview-video');
+
+        zone.classList.remove('preview-playing');
+
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+        }
+    });
+
+    currentInlinePreview = null;
+}
+
+function iniciarPreviewInline(zone) {
+    const caminho = normalizarCaminhoVideo(zone.dataset.preview);
+    const video = zone.querySelector('.inline-preview-video');
+
+    if (!caminho || !video) {
+        return;
+    }
+
+    if (currentInlinePreview && currentInlinePreview !== zone) {
+        pararPreviewsInline();
+    }
+
+    currentInlinePreview = zone;
+
+    if (video.getAttribute('src') !== caminho) {
+        video.src = caminho;
+        video.load();
+    }
+
+    zone.classList.add('preview-playing');
+
+    video.play().catch(err => {
+        console.warn('Inline preview blocked or failed:', err);
+        zone.classList.remove('preview-playing');
+    });
+}
+
+function pararPreviewInline(zone) {
+    const video = zone.querySelector('.inline-preview-video');
+
+    zone.classList.remove('preview-playing');
+
+    if (video) {
+        video.pause();
+        video.currentTime = 0;
+        video.removeAttribute('src');
+        video.load();
+    }
+
+    if (currentInlinePreview === zone) {
+        currentInlinePreview = null;
+    }
+}
+
+document.querySelectorAll('.preview-zone').forEach(zone => {
+    zone.addEventListener('mouseenter', function () {
+        clearTimeout(inlinePreviewTimer);
+
+        inlinePreviewTimer = setTimeout(() => {
+            iniciarPreviewInline(zone);
+        }, 350);
+    });
+
+    zone.addEventListener('mouseleave', function () {
+        clearTimeout(inlinePreviewTimer);
+        pararPreviewInline(zone);
+    });
+
+    zone.addEventListener('touchstart', function () {
+        iniciarPreviewInline(zone);
+    }, { passive: true });
+});
 
 window.onclick = function (e) {
     if (e.target === document.getElementById('modalPreview')) {
