@@ -673,21 +673,19 @@ body {
 }
 
 .video-thumbnail-wrapper {
-    height: 260px;
+    height: 240px;
     position: relative;
     overflow: hidden;
-    background:
-        radial-gradient(circle at center, rgba(229,9,20,0.16), transparent 38%),
-        linear-gradient(135deg, #15151d, #050508);
+    background: #111;
 }
 
 .video-thumbnail {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
-    transition: transform 0.35s ease, opacity 0.35s ease;
-    background: #050508;
+    display: block;
+    transition: transform 0.45s ease, opacity 0.35s ease;
 }
 
 .preview-zone {
@@ -699,10 +697,10 @@ body {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
     opacity: 0;
-    transform: scale(1);
+    transform: scale(1.03);
     transition: opacity 0.28s ease, transform 0.28s ease;
     z-index: 1;
     background: #000;
@@ -720,8 +718,8 @@ body {
 
 .preview-zone.preview-playing .preview-cover {
     opacity: 0;
-    transform: scale(1);
 }
+
 .video-overlay {
     z-index: 2;
     pointer-events: none;
@@ -782,8 +780,8 @@ body {
 }
 
 .video-card:hover .video-thumbnail {
-    transform: scale(1.02);
-    opacity: 0.92;
+    transform: scale(1.05);
+    opacity: 0.88;
 }
 
 .no-thumb {
@@ -1546,18 +1544,18 @@ $caminho_previa_js = json_encode(
     data-preview='<?= htmlspecialchars($v['caminho_previa'] ?? '', ENT_QUOTES, 'UTF-8') ?>'
     onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
 >
-    <?php if (!empty($v['caminho_imagem'])): ?>
-        <img
-            src="<?= htmlspecialchars($v['caminho_imagem']) ?>"
-            class="video-thumbnail preview-cover"
-            alt="<?= htmlspecialchars($v['nome_video']) ?>"
-            loading="lazy"
-        >
-    <?php else: ?>
-        <div class="no-thumb preview-cover">
-            <i class="fas fa-film"></i>
-        </div>
-    <?php endif; ?>
+<?php if (!empty($v['caminho_imagem'])): ?>
+    <img
+        src="<?= htmlspecialchars($v['caminho_imagem']) ?>"
+        class="video-thumbnail preview-cover"
+        alt="<?= htmlspecialchars($v['nome_video']) ?>"
+        loading="lazy"
+    >
+<?php else: ?>
+    <div class="no-thumb preview-cover">
+        <i class="fas fa-film"></i>
+    </div>
+<?php endif; ?>
 
     <video
         class="inline-preview-video"
