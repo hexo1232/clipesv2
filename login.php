@@ -77,11 +77,11 @@ if (password_verify($senha, $usuario['senha_hash'])) {
     <img src="icones/logo.png" alt="Logo" style="display:block; margin:10px auto; max-width:150px;">
 
     <div style="text-align:left; margin-top:10px;">
-        <label>Usuário:</label>
+        <label>User:</label>
         <input type="text" name="entrada" placeholder="nome, email ou número" required>
     </div>
 
-    <label for="senha" style="display:block; text-align:left; margin-top:10px;">Senha:</label>
+    <label for="senha" style="display:block; text-align:left; margin-top:10px;">Password:</label>
     <div style="position:relative; display:flex; align-items:center;">
         <input type="password" name="senha" class="campo-senha" required
                style="width:100%; padding-right:35px; box-sizing:border-box;">
@@ -92,11 +92,11 @@ if (password_verify($senha, $usuario['senha_hash'])) {
              style="position:absolute; right:10px; cursor:pointer; width:22px; opacity:0.8;">
     </div>
 
-    <button type="submit" style="margin-top:10px;">Entrar</button>
+    <button type="submit" style="margin-top:10px;">Login</button>
 
-    <p style="margin-top:10px;">
+    <!-- <p style="margin-top:10px;">
         Não tem conta? <a href="cadastro.php">Clique aqui</a>
-    </p>
+    </p> -->
 
     <?php if (!empty($erro)): ?>
         <p class="mensagem error" style="text-align:center;"><?= $erro ?></p>

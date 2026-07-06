@@ -129,12 +129,9 @@ $videoDestaque = !empty($videos) ? $videos[0] : null;
 
 <link rel="stylesheet" href="css/basico.css">
 
-<?php /*
-PayPal temporariamente desativado até obter credenciais.
-Quando tiveres PAYPAL_CLIENT_ID e SECRET, podes voltar a ativar este script.
-
-<script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars($paypal_client_id) ?>&currency=USD"></script>
-*/ ?>
+<?php if (!empty($paypal_client_id)): ?>
+    <script src="https://www.paypal.com/sdk/js?client-id=<?= htmlspecialchars($paypal_client_id) ?>&currency=USD"></script>
+<?php endif; ?>
 
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23060606'/%3E%3Cpath d='M14 18h36L32 52 14 18Z' fill='%23e50914'/%3E%3Cpath d='M22 18h20L32 39 22 18Z' fill='%23ffcc70' opacity='.95'/%3E%3C/svg%3E">
 
@@ -841,6 +838,16 @@ body {
     box-shadow: 0 16px 35px rgba(229,9,20,0.34);
 }
 
+.btn-message {
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.13);
+    color: white;
+}
+
+.btn-message:hover {
+    background: rgba(255,255,255,0.16);
+}
+
 .action-btn:hover {
     transform: translateY(-2px);
     filter: brightness(1.1);
@@ -1015,8 +1022,77 @@ body {
 ───────────────────────────── */
 #paypalModal {
     display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(14px);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
 }
 
+#paypalModal.open {
+    display: flex !important;
+}
+
+.paypal-modal-box {
+    width: min(440px, 94vw);
+    background: #111116;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 22px;
+    padding: 28px;
+    box-shadow: 0 30px 90px rgba(0,0,0,0.75);
+}
+
+.paypal-modal-box h3 {
+    color: white;
+    font-size: 1.15rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.pm-video-name {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.pm-price {
+    color: var(--gold);
+    font-size: 1.55rem;
+    font-weight: 900;
+    margin-bottom: 18px;
+}
+
+#paypal-button-container {
+    min-height: 50px;
+}
+
+#paypal-error-msg {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(229,9,20,0.12);
+    border: 1px solid rgba(229,9,20,0.32);
+    color: #ff7b84;
+    font-size: 0.88rem;
+    text-align: center;
+}
+
+.pm-cancel {
+    margin-top: 16px;
+    color: var(--muted);
+    text-align: center;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.pm-cancel:hover {
+    color: white;
+}
 /* ─────────────────────────────
    RESPONSIVE
 ───────────────────────────── */
@@ -1337,15 +1413,28 @@ body {
 
             <?php foreach ($videos as $v): ?>
                 <?php
-                    $mensagem_telegram = urlencode(
-                        "Hello! I'm interested in purchasing:\n\n" .
-                        "🎬 Video: " . $v['nome_video'] . "\n" .
-                        "💰 Price: $" . number_format($v['preco'], 2) . "\n" .
-                        "⏱ Duration: " . ($v['duracao'] ?? 'N/A') . "\n\n" .
-                        "How do I proceed with payment?"
-                    );
+$descricaoVideo = !empty($v['descricao'])
+    ? $v['descricao']
+    : 'No description available';
 
-                    $link_telegram = $TELEGRAM_LINK . "?text=" . $mensagem_telegram;
+$mensagem_telegram = rawurlencode(
+    "Hello! I'm interested in purchasing this video:\n\n" .
+    "🎬 Video: " . $v['nome_video'] . "\n" .
+    "🆔 Video ID: " . $v['id_video'] . "\n" .
+    "💰 Price: $" . number_format((float)$v['preco'], 2) . "\n" .
+    "⏱ Duration: " . ($v['duracao'] ?? 'N/A') . "\n" .
+    "👁 Views: " . number_format((int)$v['visualizacoes']) . "\n" .
+    "📌 Status: Available\n\n" .
+    "📝 Description:\n" . $descricaoVideo . "\n\n" .
+    "I have paid / I want to proceed with payment. Please send me the access details."
+);
+
+$telegramBase = rtrim($TELEGRAM_LINK, '/');
+$link_telegram = $telegramBase . "?text=" . $mensagem_telegram;
+
+// Versão segura para usar dentro do JavaScript
+$link_telegram_js = json_encode($link_telegram, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$nome_video_js    = json_encode($v['nome_video'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 ?>
 
                 <article class="video-card">
@@ -1427,32 +1516,29 @@ body {
                                 </a>
                             </div>
 
-                            <!-- PayPal temporariamente substituído por Send Message -->
-                            <a
-                                href="<?= $link_telegram ?>"
-                                target="_blank"
-                                rel="noopener"
-                                class="action-btn btn-buy"
-                            >
-                                <i class="fas fa-paper-plane"></i>
-                                Pay Now — $<?= number_format($v['preco'], 2) ?>
-                            </a>
+<button
+    type="button"
+    class="action-btn btn-buy"
+    onclick='abrirPayPal(
+        <?= (int)$v["id_video"] ?>,
+        <?= $nome_video_js ?>,
+        <?= (float)$v["preco"] ?>,
+        <?= $link_telegram_js ?>
+    )'
+>
+    <i class="fab fa-paypal"></i>
+    PayPal — $<?= number_format((float)$v['preco'], 2) ?>
+</button>
 
-                            <?php /*
-                            PayPal original preservado para reativar depois:
-
-                            <button
-                                class="action-btn btn-buy"
-                                onclick="abrirPayPal(
-                                    <?= $v['id_video'] ?>,
-                                    '<?= addslashes($v['nome_video']) ?>',
-                                    <?= $v['preco'] ?>
-                                )"
-                            >
-                                <i class="fab fa-paypal"></i>
-                                PayPal — $<?= number_format($v['preco'], 2) ?>
-                            </button>
-                            */ ?>
+<a
+    href="<?= htmlspecialchars($link_telegram) ?>"
+    target="_blank"
+    rel="noopener"
+    class="action-btn btn-message"
+>
+    <i class="fas fa-paper-plane"></i>
+    Send Message
+</a>
                         </div>
                     </div>
                 </article>
@@ -1472,15 +1558,25 @@ body {
     </div>
 </div>
 
-<?php /*
-PayPal modal temporariamente desativado.
-Mantido para reativação futura.
-
 <div id="paypalModal">
     <div class="paypal-modal-box">
         <h3 id="pm-title">Complete your purchase</h3>
+
         <div class="pm-video-name" id="pm-video-name"></div>
         <div class="pm-price" id="pm-price"></div>
+
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:14px;margin-bottom:18px;font-size:0.86rem;color:var(--muted);line-height:1.6;">
+            <div style="font-weight:900;color:white;margin-bottom:8px;">
+                <i class="fas fa-circle-info" style="color:var(--gold);margin-right:6px;"></i>
+                How does it work?
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:7px;">
+                <span><i class="fab fa-paypal" style="color:var(--gold);width:18px;"></i> Complete the secure PayPal payment.</span>
+                <span><i class="fab fa-telegram" style="color:var(--gold);width:18px;"></i> After payment, you will be redirected to Telegram.</span>
+                <span><i class="fas fa-film" style="color:var(--gold);width:18px;"></i> The Telegram message will include all video details.</span>
+            </div>
+        </div>
 
         <div id="paypal-button-container"></div>
 
@@ -1494,19 +1590,18 @@ Mantido para reativação futura.
         </div>
     </div>
 </div>
-*/ ?>
 
 <script>
-<?php /*
-PayPal temporariamente comentado.
-Quando tiveres PAYPAL_CLIENT_ID e SECRET, podes reativar este bloco.
-
 let paypalButtons = null;
+let telegramAfterPayment = null;
 
-function abrirPayPal(idVideo, nomeVideo, preco) {
+function abrirPayPal(idVideo, nomeVideo, preco, telegramLink) {
+    telegramAfterPayment = telegramLink;
+
     document.getElementById('pm-video-name').textContent = nomeVideo;
-    document.getElementById('pm-price').textContent      = '$' + parseFloat(preco).toFixed(2);
+    document.getElementById('pm-price').textContent = '$' + parseFloat(preco).toFixed(2);
     document.getElementById('paypal-error-msg').style.display = 'none';
+
     document.getElementById('paypalModal').classList.add('open');
     document.body.style.overflow = 'hidden';
 
@@ -1517,18 +1612,31 @@ function abrirPayPal(idVideo, nomeVideo, preco) {
         paypalButtons = null;
     }
 
+    if (typeof paypal === 'undefined') {
+        document.getElementById('paypal-error-msg').innerHTML =
+            '<i class="fas fa-circle-exclamation"></i> PayPal is unavailable. Please use Send Message.';
+        document.getElementById('paypal-error-msg').style.display = 'block';
+        return;
+    }
+
     paypalButtons = paypal.Buttons({
         createOrder: async function () {
             try {
                 const res = await fetch('/paypal/create-order.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_video: idVideo }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id_video: idVideo
+                    }),
                 });
 
                 const data = await res.json();
 
-                if (data.error) throw new Error(data.error);
+                if (data.error) {
+                    throw new Error(data.error);
+                }
 
                 return data.id;
             } catch (err) {
@@ -1539,7 +1647,15 @@ function abrirPayPal(idVideo, nomeVideo, preco) {
 
         onApprove: async function (data) {
             try {
-                window.location.href = '/paypal/capture-order.php?token=' + data.orderID;
+                const redirectTelegram = encodeURIComponent(telegramAfterPayment || '');
+
+                window.location.href =
+                    '/paypal/capture-order.php?token=' +
+                    encodeURIComponent(data.orderID) +
+                    '&id_video=' +
+                    encodeURIComponent(idVideo) +
+                    '&telegram_redirect=' +
+                    redirectTelegram;
             } catch (err) {
                 console.error('onApprove error:', err);
                 mostrarErroPayPal();
@@ -1557,9 +1673,9 @@ function abrirPayPal(idVideo, nomeVideo, preco) {
 
         style: {
             layout: 'vertical',
-            color:  'gold',
-            shape:  'rect',
-            label:  'paypal',
+            color: 'gold',
+            shape: 'rect',
+            label: 'paypal',
         },
     });
 
@@ -1569,6 +1685,7 @@ function abrirPayPal(idVideo, nomeVideo, preco) {
 function fecharPayPal() {
     document.getElementById('paypalModal').classList.remove('open');
     document.body.style.overflow = 'auto';
+
     document.getElementById('paypal-button-container').innerHTML = '';
 
     if (paypalButtons) {
@@ -1580,7 +1697,6 @@ function fecharPayPal() {
 function mostrarErroPayPal() {
     document.getElementById('paypal-error-msg').style.display = 'block';
 }
-*/ ?>
 
 // Mensagem de feedback após retorno do PayPal antigo
 window.addEventListener('DOMContentLoaded', function () {
