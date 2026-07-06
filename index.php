@@ -319,9 +319,11 @@ body {
     top: 0;
     width: 62%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center right;
     opacity: 0.58;
     filter: saturate(1.2) contrast(1.1);
+    background: #050505;
 }
 
 .hero-fallback {
@@ -674,14 +676,18 @@ body {
     height: 260px;
     position: relative;
     overflow: hidden;
-    background: #111;
+    background:
+        radial-gradient(circle at center, rgba(229,9,20,0.16), transparent 38%),
+        linear-gradient(135deg, #15151d, #050508);
 }
 
 .video-thumbnail {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     transition: transform 0.35s ease, opacity 0.35s ease;
+    background: #050508;
 }
 
 .preview-zone {
@@ -693,9 +699,10 @@ body {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     opacity: 0;
-    transform: scale(1.04);
+    transform: scale(1);
     transition: opacity 0.28s ease, transform 0.28s ease;
     z-index: 1;
     background: #000;
@@ -713,8 +720,8 @@ body {
 
 .preview-zone.preview-playing .preview-cover {
     opacity: 0;
+    transform: scale(1);
 }
-
 .video-overlay {
     z-index: 2;
     pointer-events: none;
@@ -775,8 +782,8 @@ body {
 }
 
 .video-card:hover .video-thumbnail {
-    transform: scale(1.08);
-    opacity: 0.76;
+    transform: scale(1.02);
+    opacity: 0.92;
 }
 
 .no-thumb {
