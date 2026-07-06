@@ -319,10 +319,10 @@ body {
     top: 0;
     width: 62%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     object-position: center right;
-    opacity: 0.58;
-    filter: saturate(1.2) contrast(1.1);
+    opacity: 0.52;
+    filter: saturate(1.15) contrast(1.08);
     background: #050505;
 }
 
@@ -454,7 +454,7 @@ body {
 }
 
 /* ─────────────────────────────
-   PAGE WRAPPER
+   PAGE
 ───────────────────────────── */
 .page {
     max-width: 1500px;
@@ -463,7 +463,7 @@ body {
 }
 
 /* ─────────────────────────────
-   CONTROL PANEL
+   CONTROL PANEL / FILTERS
 ───────────────────────────── */
 .control-panel {
     margin-top: -42px;
@@ -611,7 +611,7 @@ body {
 }
 
 /* ─────────────────────────────
-   RAIL HEADER
+   COLLECTION HEADER
 ───────────────────────────── */
 .rail-header {
     display: flex;
@@ -647,7 +647,7 @@ body {
 }
 
 /* ─────────────────────────────
-   VIDEO GRID
+   VIDEO GRID / CARD
 ───────────────────────────── */
 .videos-grid {
     display: grid;
@@ -672,45 +672,91 @@ body {
     box-shadow: 0 28px 80px rgba(0,0,0,0.72);
 }
 
+/* ─────────────────────────────
+   THUMBNAIL / CAPA / HOVER PREVIEW
+───────────────────────────── */
 .video-thumbnail-wrapper {
-    height: 240px;
     position: relative;
+    width: 100%;
+    height: 240px;
     overflow: hidden;
     background: #111;
+    border-radius: 20px 20px 0 0;
 }
 
+/* Imagem da capa */
 .video-thumbnail {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
+    object-position: center center;
     display: block;
-    transition: transform 0.45s ease, opacity 0.35s ease;
+    opacity: 1;
+    transition: transform 0.45s ease, opacity 0.28s ease;
+}
+
+/* Fallback sem imagem */
+.no-thumb {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle, rgba(229,9,20,0.20), transparent 38%),
+        linear-gradient(135deg, #16161f, #09090d);
+}
+
+.no-thumb i {
+    font-size: 3.5rem;
+    color: rgba(255,255,255,0.18);
 }
 
 .preview-zone {
     cursor: pointer;
 }
 
+/* Vídeo inline do hover */
 .inline-preview-video {
     position: absolute;
     inset: 0;
+    z-index: 2;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
+    object-position: center center;
+    background: #000;
     opacity: 0;
     transform: scale(1.03);
     transition: opacity 0.28s ease, transform 0.28s ease;
-    z-index: 1;
-    background: #000;
 }
 
-.preview-cover {
-    position: relative;
-    z-index: 0;
+/* Overlay leve para dar contraste sem esconder a capa */
+.video-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(
+        180deg,
+        rgba(0,0,0,0.02) 0%,
+        rgba(0,0,0,0.06) 42%,
+        rgba(0,0,0,0.42) 100%
+    );
 }
 
+/* Hover normal da imagem */
+.video-card:hover .video-thumbnail {
+    transform: scale(1.05);
+    opacity: 0.96;
+}
+
+/* Quando a prévia estiver a tocar */
 .preview-zone.preview-playing .inline-preview-video {
     opacity: 1;
     transform: scale(1);
@@ -720,22 +766,12 @@ body {
     opacity: 0;
 }
 
-.video-overlay {
-    z-index: 2;
-    pointer-events: none;
-}
-
-.quality-badge,
-.price-badge,
-.duration-badge {
-    z-index: 4;
-}
-
+/* Legenda Preview */
 .preview-hint {
     position: absolute;
     left: 50%;
     top: 50%;
-    z-index: 5;
+    z-index: 6;
     transform: translate(-50%, -50%) scale(0.92);
     min-width: 112px;
     height: 44px;
@@ -764,13 +800,14 @@ body {
     opacity: 0;
 }
 
+/* Borda vermelha no hover */
 .preview-zone::after {
     content: '';
     position: absolute;
     inset: 0;
-    z-index: 3;
+    z-index: 5;
     border: 2px solid transparent;
-    border-radius: inherit;
+    border-radius: 20px 20px 0 0;
     pointer-events: none;
     transition: border-color 0.22s ease;
 }
@@ -779,51 +816,14 @@ body {
     border-color: rgba(229,9,20,0.65);
 }
 
-.video-card:hover .video-thumbnail {
-    transform: scale(1.05);
-    opacity: 0.88;
-}
-
-.no-thumb {
-    width: 100%;
-    height: 100%;
-    display: grid;
-    place-items: center;
-    background:
-        radial-gradient(circle, rgba(229,9,20,0.20), transparent 38%),
-        linear-gradient(135deg, #16161f, #09090d);
-}
-
-.no-thumb i {
-    font-size: 3.5rem;
-    color: rgba(255,255,255,0.18);
-}
-
-.video-overlay {
-    position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.85));
-}
-
-.price-badge {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    background: var(--red);
-    color: white;
-    padding: 8px 13px;
-    border-radius: 999px;
-    font-weight: 900;
-    box-shadow: 0 14px 30px rgba(229,9,20,0.35);
-}
-
+/* Badges */
 .quality-badge {
     position: absolute;
     top: 14px;
     left: 14px;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.18);
+    z-index: 7;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.22);
     backdrop-filter: blur(10px);
     color: white;
     padding: 7px 11px;
@@ -832,15 +832,37 @@ body {
     font-weight: 900;
 }
 
+.price-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 7;
+    background: var(--red);
+    color: white;
+    padding: 8px 13px;
+    border-radius: 999px;
+    font-weight: 900;
+    box-shadow: 0 14px 30px rgba(229,9,20,0.35);
+}
+
 .duration-badge {
     position: absolute;
     left: 14px;
     bottom: 14px;
+    z-index: 7;
     color: white;
-    font-weight: 800;
+    background: rgba(0,0,0,0.62);
+    border: 1px solid rgba(255,255,255,0.14);
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-weight: 900;
     font-size: 0.82rem;
 }
 
+/* ─────────────────────────────
+   CARD INFO
+───────────────────────────── */
 .video-info {
     padding: 20px;
 }
@@ -890,6 +912,9 @@ body {
     color: var(--green);
 }
 
+/* ─────────────────────────────
+   BUTTONS
+───────────────────────────── */
 .action-buttons {
     display: flex;
     flex-direction: column;
@@ -1113,7 +1138,7 @@ body {
 }
 
 /* ─────────────────────────────
-   PAYPAL MODAL COMMENTED STYLE
+   PAYPAL MODAL
 ───────────────────────────── */
 #paypalModal {
     display: none;
@@ -1188,6 +1213,7 @@ body {
 .pm-cancel:hover {
     color: white;
 }
+
 /* ─────────────────────────────
    RESPONSIVE
 ───────────────────────────── */
@@ -1260,6 +1286,10 @@ body {
 
     .hero-btn {
         width: 100%;
+    }
+
+    .video-thumbnail-wrapper {
+        height: 230px;
     }
 }
 </style>
