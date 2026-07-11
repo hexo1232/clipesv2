@@ -247,6 +247,57 @@ $totalVis       = $conexao->query("SELECT COALESCE(SUM(visualizacoes), 0) FROM v
     .action-toggle.is-active { color: #dd6b20; }
     .action-toggle:hover { background: #fff5f5; }
 
+    /* ── Header com botão de ação ── */
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .btn-add-video {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.95rem;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.35);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-add-video:hover {
+        background: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(52, 152, 219, 0.45);
+    }
+
+    .btn-add-video .plus-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        background: rgba(255,255,255,0.25);
+        border-radius: 50%;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    body.dark-mode .btn-add-video {
+        background: #3182ce;
+    }
+    body.dark-mode .btn-add-video:hover {
+        background: #2b6cb0;
+    }
+
     /* Dark Mode */
     body.dark-mode .video-card { background: #1a202c; border-color: #2d3748; }
     body.dark-mode .card-title { color: #f7fafc; }
@@ -288,7 +339,13 @@ $totalVis       = $conexao->query("SELECT COALESCE(SUM(visualizacoes), 0) FROM v
 
 <div class="content">
   <div class="main">
-    <h1>Gerenciar Vídeos</h1>
+<div class="page-header">
+        <h1>Gerenciar Vídeos</h1>
+        <a href="cadastrar_video.php" class="btn-add-video">
+            <span class="plus-icon">+</span>
+            Adicionar Vídeo
+        </a>
+    </div>
 
     <!-- ── Estatísticas ── -->
     <div class="stats">
@@ -388,17 +445,23 @@ $totalVis       = $conexao->query("SELECT COALESCE(SUM(visualizacoes), 0) FROM v
         </h3>
 
         <div class="card-meta">
-            <div class="meta-row">
-                <span class="cat-badge">
-                    <?php
-                        $stmtCat = $conexao->prepare("SELECT c.nome_categoria FROM categoria c INNER JOIN video_categoria vc ON c.id_categoria = vc.id_categoria WHERE vc.id_video = ?");
-                        $stmtCat->execute([$v['id_video']]);
-                        $cats = $stmtCat->fetchAll(PDO::FETCH_COLUMN);
-                        echo htmlspecialchars(mb_strimwidth(implode(', ', $cats), 0, 25, '...'));
-                    ?>
-                </span>
-                <span>👁 <?= number_format($v['visualizacoes']) ?></span>
-            </div>
+<div class="meta-row">
+    <span class="cat-badge">
+        <?php
+            $stmtCat = $conexao->prepare("SELECT c.nome_categoria FROM categoria c INNER JOIN video_categoria vc ON c.id_categoria = vc.id_categoria WHERE vc.id_video = ?");
+            $stmtCat->execute([$v['id_video']]);
+            $cats = $stmtCat->fetchAll(PDO::FETCH_COLUMN);
+            echo htmlspecialchars(mb_strimwidth(implode(', ', $cats), 0, 25, '...'));
+        ?>
+    </span>
+    <span>👁 <?= number_format($v['visualizacoes']) ?></span>
+</div>
+
+<div class="meta-row">
+    <span style="color:#38a169; font-weight:700;">
+        💲 $<?= number_format((float)$v['preco'], 2) ?>
+    </span>
+</div>
 
             <div class="meta-row" style="margin-top:10px; color:#a0aec0; font-size:0.75rem;">
                 <span>👤 <?= htmlspecialchars($v['usuario_apelido'] ?? 'Admin') ?></span>

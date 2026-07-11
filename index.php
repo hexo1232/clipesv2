@@ -918,7 +918,13 @@ body {
 .action-buttons {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px; /* mais respiro entre os grupos */
+}
+
+.btn-buy {
+    margin-top: 4px; /* separa visualmente do botão Preview */
+    min-height: 52px; /* levemente maior, chama mais atenção */
+    font-size: 0.95rem;
 }
 
 .action-row {
@@ -954,8 +960,12 @@ body {
 }
 
 .btn-buy {
-    background: linear-gradient(135deg, var(--red), var(--red2));
-    box-shadow: 0 16px 35px rgba(229,9,20,0.34);
+    background: #003087; /* Navy oficial do PayPal */
+    box-shadow: 0 16px 35px rgba(0,48,135,0.40);
+}
+
+.btn-buy:hover {
+    background: #001c64; /* navy mais escuro no hover */
 }
 
 .btn-message {
@@ -972,7 +982,9 @@ body {
     transform: translateY(-2px);
     filter: brightness(1.1);
 }
-
+.btn-buy .fa-paypal {
+    color: #ffc439; /* amarelo característico do logo PayPal */
+}
 /* ─────────────────────────────
    EMPTY STATE
 ───────────────────────────── */
@@ -1684,7 +1696,7 @@ $caminho_previa_js = json_encode(
     target="_blank"
     rel="noopener"
     class="action-btn btn-message"
->
+>a
     <i class="fas fa-paper-plane"></i>
     Send Message
 </a> -->

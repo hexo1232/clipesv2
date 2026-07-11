@@ -85,6 +85,10 @@ border: none;
     background: #be5006ff;
     transform:scale(1.1);
 }
+
+.conteudo{
+    margin-left: 250px;
+    padding: 20px;}
                 </style>
 </head>
 <body>
