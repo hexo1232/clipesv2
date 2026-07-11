@@ -1655,14 +1655,14 @@ $caminho_previa_js = json_encode(
     <i class="far fa-play-circle"></i> Preview
 </button>
 
-                                <a
+                                <!-- <a
                                     href="<?= $link_telegram ?>"
                                     target="_blank"
                                     rel="noopener"
                                     class="action-btn btn-telegram"
                                 >
                                     <i class="fab fa-telegram"></i> Telegram
-                                </a>
+                                </a> -->
                             </div>
 
 <button
@@ -1679,7 +1679,7 @@ $caminho_previa_js = json_encode(
     PayPal — $<?= number_format((float)$v['preco'], 2) ?>
 </button>
 
-<a
+<!-- <a
     href="<?= htmlspecialchars($link_telegram) ?>"
     target="_blank"
     rel="noopener"
@@ -1687,7 +1687,7 @@ $caminho_previa_js = json_encode(
 >
     <i class="fas fa-paper-plane"></i>
     Send Message
-</a>
+</a> -->
                         </div>
                     </div>
                 </article>
