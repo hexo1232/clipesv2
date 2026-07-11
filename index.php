@@ -923,6 +923,30 @@ body {
 
 .btn-buy {
     font-size: 0.88rem;
+    gap: 10px;
+}
+
+.btn-buy .fa-paypal {
+    font-size: 1.3rem;
+}
+
+.btn-buy-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+}
+
+.btn-buy-text strong {
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.3px;
+}
+
+.btn-buy-text small {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--gold);
 }
 
 .action-row {
@@ -1676,7 +1700,10 @@ $caminho_previa_js = json_encode(
     )'
 >
     <i class="fab fa-paypal"></i>
-    $<?= number_format((float)$v['preco'], 2) ?>
+    <span class="btn-buy-text">
+        <strong>PayPal</strong>
+        <small>$<?= number_format((float)$v['preco'], 2) ?></small>
+    </span>
 </button>
                             </div>
 
