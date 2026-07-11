@@ -845,16 +845,12 @@ body.menu-open {
 .usuario-menu {
   background: #ffffff;
   color: #000;
-  display: flex;
+  display: none;
   flex-direction: column;
   padding: 10px 0;
   border-radius: 10px;
   box-shadow: 0 5px 22px rgba(0,0,0,0.25);
   z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-8px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .usuario-menu a {
@@ -870,9 +866,8 @@ body.menu-open {
 }
 
 .usuario-menu.show {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+  display: flex;
+  animation: fadeInMenu 0.3s ease-out;
 }
 
 .sidebar-user-wrapper .dark-toggle {

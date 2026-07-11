@@ -922,9 +922,7 @@ body {
 }
 
 .btn-buy {
-    margin-top: 4px; /* separa visualmente do botão Preview */
-    min-height: 52px; /* levemente maior, chama mais atenção */
-    font-size: 0.95rem;
+    font-size: 0.88rem;
 }
 
 .action-row {
@@ -1657,8 +1655,8 @@ $caminho_previa_js = json_encode(
                             </span>
                         </div>
 
-                        <div class="action-buttons">
-                            <div class="action-row">
+                      <div class="action-buttons">
+    <div class="action-row">
 <button
     type="button"
     onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
@@ -1666,16 +1664,6 @@ $caminho_previa_js = json_encode(
 >
     <i class="far fa-play-circle"></i> Preview
 </button>
-
-                                <!-- <a
-                                    href="<?= $link_telegram ?>"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="action-btn btn-telegram"
-                                >
-                                    <i class="fab fa-telegram"></i> Telegram
-                                </a> -->
-                            </div>
 
 <button
     type="button"
@@ -1688,8 +1676,9 @@ $caminho_previa_js = json_encode(
     )'
 >
     <i class="fab fa-paypal"></i>
-    PayPal — $<?= number_format((float)$v['preco'], 2) ?>
+    $<?= number_format((float)$v['preco'], 2) ?>
 </button>
+                            </div>
 
 <!-- <a
     href="<?= htmlspecialchars($link_telegram) ?>"
