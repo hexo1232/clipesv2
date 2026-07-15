@@ -59,10 +59,14 @@ if ($is_ajax) {
     $previa_public_id = trim($_POST['previa_public_id'] ?? '');
     $previa_iv         = trim($_POST['previa_iv']        ?? '');
     $previa_key_enc    = trim($_POST['previa_key_enc']   ?? '');
+    $previa_mime       = trim($_POST['previa_mime']      ?? '') ?: null;
+    $previa_tamanho    = trim($_POST['previa_tamanho']   ?? '') ?: null;
 
     $imagem_public_id = trim($_POST['imagem_public_id'] ?? '');
     $imagem_iv         = trim($_POST['imagem_iv']        ?? '');
     $imagem_key_enc    = trim($_POST['imagem_key_enc']   ?? '');
+    $imagem_mime       = trim($_POST['imagem_mime']      ?? '') ?: null;
+    $imagem_tamanho    = trim($_POST['imagem_tamanho']   ?? '') ?: null;
 
     // ── Validações ────────────────────────────────────────────────────────
     if ($nome_video === '') {
@@ -103,23 +107,19 @@ if ($previa_public_id === '' || $previa_iv === '' || $previa_key_enc === '') {
         $conexao->beginTransaction();
 
 $stmt_video = $conexao->prepare("
-            INSERT INTO video
-                (nome_video, descricao, preco, duracao, caminho_previa,
-                 previa_public_id, previa_iv, previa_key_enc, id_usuario)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id_video
-        ");
-        $stmt_video->execute([
-            $nome_video,
-            $descricao,
-            $preco,
-            $duracao,
-            $previa_public_id,   // caminho_previa agora guarda o public_id, não uma URL
-            $previa_public_id,
-            $previa_iv,
-            $previa_key_enc,
-            $usuario['id_usuario'],
-        ]);
+    INSERT INTO video
+        (nome_video, descricao, preco, duracao, caminho_previa,
+         previa_public_id, previa_iv, previa_key_enc,
+         previa_mime, previa_tamanho_bytes, id_usuario)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING id_video
+");
+$stmt_video->execute([
+    $nome_video, $descricao, $preco, $duracao,
+    $previa_public_id, $previa_public_id, $previa_iv, $previa_key_enc,
+    $previa_mime, $previa_tamanho,
+    $usuario['id_usuario'],
+]);
 
         $row      = $stmt_video->fetch(PDO::FETCH_ASSOC);
         $id_video = $row['id_video'] ?? null;
@@ -138,10 +138,11 @@ $stmt_video = $conexao->prepare("
 
         // Imagem de destaque
 $conexao->prepare(
-            "INSERT INTO video_imagem
-                (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc, imagem_principal)
-             VALUES (?, ?, ?, ?, ?, true)"
-        )->execute([$id_video, $imagem_public_id, $imagem_public_id, $imagem_iv, $imagem_key_enc]);
+    "INSERT INTO video_imagem
+        (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc,
+         imagem_mime, imagem_tamanho_bytes, imagem_principal)
+     VALUES (?, ?, ?, ?, ?, ?, ?, true)"
+)->execute([$id_video, $imagem_public_id, $imagem_public_id, $imagem_iv, $imagem_key_enc, $imagem_mime, $imagem_tamanho]);
 
         $conexao->commit();
 
@@ -660,10 +661,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             formData.append('previa_public_id', previaData.public_id);
             formData.append('previa_iv',        previaData.iv);
             formData.append('previa_key_enc',   previaData.key_enc);
+            formData.append('previa_mime',      previaData.mime);
+            formData.append('previa_tamanho',   previaData.tamanho);
 
             formData.append('imagem_public_id', imagemData.public_id);
             formData.append('imagem_iv',        imagemData.iv);
             formData.append('imagem_key_enc',   imagemData.key_enc);
+            formData.append('imagem_mime',      imagemData.mime);
+            formData.append('imagem_tamanho',   imagemData.tamanho);
 
             const resp = await fetch(window.location.href, {
                 method: 'POST',
@@ -759,13 +764,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             reject(new Error('O servidor de upload não devolveu os dados de encriptação esperados.'));
             return;
         }
-        updateBar(suffix, 100, file.size, file.size, 0);
-        resolve({
-            public_id: data.public_id,
-            iv:        data.iv,
-            key_enc:   data.key_enc,
-        });
-    };
+    updateBar(suffix, 100, file.size, file.size, 0);
+    resolve({
+        public_id: data.public_id,
+        iv:        data.iv,
+        key_enc:   data.key_enc,
+        mime:      data.mime,
+        tamanho:   data.tamanho,
+    });
+};
 
             xhr.onerror   = () => reject(new Error('Erro de rede durante o upload.'));
             xhr.ontimeout = () => reject(new Error('Timeout: o upload demorou demasiado.'));

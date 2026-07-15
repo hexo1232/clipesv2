@@ -54,7 +54,8 @@ if ($id_video <= 0) {
 // IMPORTANTE: além de caminho_imagem, também trazemos os metadados de
 // encriptação da imagem (não vêm no v.* porque estão na tabela video_imagem).
 $stmt = $conexao->prepare(
-    "SELECT v.*, vi.caminho_imagem, vi.imagem_public_id, vi.imagem_iv, vi.imagem_key_enc
+    "SELECT v.*, vi.caminho_imagem, vi.imagem_public_id, vi.imagem_iv, vi.imagem_key_enc,
+            vi.imagem_mime, vi.imagem_tamanho_bytes
      FROM video v
      LEFT JOIN video_imagem vi ON v.id_video = vi.id_video AND vi.imagem_principal = true
      WHERE v.id_video = ?"
@@ -99,6 +100,10 @@ if ($is_ajax) {
     $categorias_selecionadas = $_POST['categorias']       ?? [];
     $remover_previa          = !empty($_POST['remover_previa']);
     $remover_imagem          = !empty($_POST['remover_imagem']);
+    $previa_mime_novo      = trim($_POST['previa_mime_novo']    ?? '') ?: null;
+    $previa_tamanho_novo   = trim($_POST['previa_tamanho_novo'] ?? '') ?: null;
+    $imagem_mime_novo      = trim($_POST['imagem_mime_novo']    ?? '') ?: null;
+    $imagem_tamanho_novo   = trim($_POST['imagem_tamanho_novo'] ?? '') ?: null;
 
     // Dados vindos do upload_cloudinary.php (vazios se não houve novo upload)
     $previa_public_id_novo = trim($_POST['previa_public_id_novo'] ?? '');
@@ -135,20 +140,23 @@ if ($is_ajax) {
 
     // ── Determinar valores finais para a prévia (trio: public_id/iv/key_enc) ──
     if ($previa_public_id_novo !== '') {
-        // Substituição por novo ficheiro
         $previa_public_id_final = $previa_public_id_novo;
         $previa_iv_final         = $previa_iv_novo;
         $previa_key_enc_final    = $previa_key_enc_novo;
+        $previa_mime_final       = $previa_mime_novo;
+        $previa_tamanho_final    = $previa_tamanho_novo;
     } elseif ($remover_previa) {
-        // Remoção sem substituição
         $previa_public_id_final = null;
         $previa_iv_final         = null;
         $previa_key_enc_final    = null;
+        $previa_mime_final       = null;
+        $previa_tamanho_final    = null;
     } else {
-        // Mantém o que já existia
         $previa_public_id_final = $video['previa_public_id'];
         $previa_iv_final         = $video['previa_iv'];
         $previa_key_enc_final    = $video['previa_key_enc'];
+        $previa_mime_final       = $video['previa_mime'];
+        $previa_tamanho_final    = $video['previa_tamanho_bytes'];
     }
 
     // ── Determinar valores finais para a imagem (mesmo padrão) ──────────────
@@ -156,15 +164,22 @@ if ($is_ajax) {
         $imagem_public_id_final = $imagem_public_id_novo;
         $imagem_iv_final         = $imagem_iv_novo;
         $imagem_key_enc_final    = $imagem_key_enc_novo;
+        $imagem_mime_final       = $imagem_mime_novo;
+        $imagem_tamanho_final    = $imagem_tamanho_novo;
     } elseif ($remover_imagem) {
         $imagem_public_id_final = null;
         $imagem_iv_final         = null;
         $imagem_key_enc_final    = null;
+        $imagem_mime_final       = null;
+        $imagem_tamanho_final    = null;
     } else {
         $imagem_public_id_final = $video['imagem_public_id'] ?? null;
         $imagem_iv_final         = $video['imagem_iv'] ?? null;
         $imagem_key_enc_final    = $video['imagem_key_enc'] ?? null;
+        $imagem_mime_final       = $video['imagem_mime'] ?? null;
+        $imagem_tamanho_final    = $video['imagem_tamanho_bytes'] ?? null;
     }
+
 
     // ── Verificar se houve alguma alteração ──────────────────────────────
     $duracao_bd = $video['duracao'] !== null ? rtrim($video['duracao'], ' ') : null;
@@ -192,11 +207,13 @@ if ($is_ajax) {
         $conexao->prepare("
             UPDATE video
             SET nome_video = ?, descricao = ?, preco = ?, duracao = ?,
-                caminho_previa = ?, previa_public_id = ?, previa_iv = ?, previa_key_enc = ?
+                caminho_previa = ?, previa_public_id = ?, previa_iv = ?, previa_key_enc = ?,
+                previa_mime = ?, previa_tamanho_bytes = ?
             WHERE id_video = ?
         ")->execute([
             $nome_video, $descricao, $preco, $duracao,
             $previa_public_id_final, $previa_public_id_final, $previa_iv_final, $previa_key_enc_final,
+            $previa_mime_final, $previa_tamanho_final,
             $id_video,
         ]);
 
@@ -206,13 +223,14 @@ if ($is_ajax) {
             $conexao->prepare("DELETE FROM video_imagem WHERE id_video = ? AND imagem_principal = true")
                     ->execute([$id_video]);
             // Insere novo se há imagem
-            if ($imagem_public_id_final !== null) {
-                $conexao->prepare(
-                    "INSERT INTO video_imagem
-                        (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc, imagem_principal)
-                     VALUES (?, ?, ?, ?, ?, true)"
-                )->execute([$id_video, $imagem_public_id_final, $imagem_public_id_final, $imagem_iv_final, $imagem_key_enc_final]);
-            }
+        if ($imagem_public_id_final !== null) {
+            $conexao->prepare(
+                "INSERT INTO video_imagem
+                    (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc,
+                    imagem_mime, imagem_tamanho_bytes, imagem_principal)
+                VALUES (?, ?, ?, ?, ?, ?, ?, true)"
+            )->execute([$id_video, $imagem_public_id_final, $imagem_public_id_final, $imagem_iv_final, $imagem_key_enc_final, $imagem_mime_final, $imagem_tamanho_final]);
+        }
         }
 
         // Actualizar categorias
@@ -717,8 +735,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (fileImagem) resetOverlayBar('Imagem');
 
         // Valores por omissão: nenhum upload novo (mantém/ remove conforme checkboxes)
-        let previaNova = { public_id: '', iv: '', key_enc: '' };
-        let imagemNova = { public_id: '', iv: '', key_enc: '' };
+let previaNova = { public_id: '', iv: '', key_enc: '', mime: '', tamanho: '' };
+let imagemNova = { public_id: '', iv: '', key_enc: '', mime: '', tamanho: '' };
 
         try {
             // ── Fase 1 (condicional): Upload da nova prévia ───────────────
@@ -747,10 +765,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             formData.append('previa_public_id_novo', previaNova.public_id);
             formData.append('previa_iv_novo',         previaNova.iv);
             formData.append('previa_key_enc_novo',    previaNova.key_enc);
+            formData.append('previa_mime_novo',       previaNova.mime);
+            formData.append('previa_tamanho_novo',    previaNova.tamanho);
 
             formData.append('imagem_public_id_novo', imagemNova.public_id);
             formData.append('imagem_iv_novo',         imagemNova.iv);
             formData.append('imagem_key_enc_novo',    imagemNova.key_enc);
+            formData.append('imagem_mime_novo',       imagemNova.mime);
+            formData.append('imagem_tamanho_novo',    imagemNova.tamanho);
 
             const resp = await fetch(window.location.href, {
                 method: 'POST',
@@ -838,11 +860,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     return;
                 }
                 updateBar(suffix, 100, file.size, file.size, 0);
-                resolve({
-                    public_id: data.public_id,
-                    iv:        data.iv,
-                    key_enc:   data.key_enc,
-                });
+                    resolve({
+                public_id: data.public_id,
+                iv:        data.iv,
+                key_enc:   data.key_enc,
+                mime:      data.mime,
+                tamanho:   data.tamanho,
+            });
             };
 
             xhr.onerror   = () => reject(new Error('Erro de rede durante o upload.'));
