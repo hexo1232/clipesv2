@@ -1,75 +1,97 @@
 <?php
 // upload_cloudinary.php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-include "verifica_login.php";
-include "conexao.php";
+// Recebe um ficheiro (video ou imagem), encripta localmente e envia
+// o blob cifrado para a Cloudinary como recurso "raw" (Cloudinary nunca
+// vê o conteúdo original).
 
-$cloudinary = require __DIR__ . '/config/cloudinary.php';
+include "verifica_login.php";
+require_once __DIR__ . '/crypto_helper.php';
+$cloudinary = require __DIR__ . '/cloudinary_config.php'; // o ficheiro que devolve `new Cloudinary(...)`
 
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['usuario'])) {
-    echo json_encode(['erro' => 'Não autenticado.']);
+    echo json_encode(['erro' => 'Sessão expirada. Faça login novamente.']);
     exit;
 }
 
-$tipo    = trim($_POST['tipo'] ?? '');
-$arquivo = $_FILES['arquivo'] ?? null;
-
-if (empty($tipo) || !in_array($tipo, ['video', 'imagem'])) {
-    echo json_encode(['erro' => 'Tipo de ficheiro inválido. Use "video" ou "imagem".']);
+if (!isset($_FILES['arquivo']) || $_FILES['arquivo']['error'] !== UPLOAD_ERR_OK) {
+    echo json_encode(['erro' => 'Nenhum ficheiro recebido ou erro no upload.']);
     exit;
 }
 
-if (!$arquivo || $arquivo['error'] !== UPLOAD_ERR_OK) {
-    $erros_php = [
-        UPLOAD_ERR_INI_SIZE   => 'Ficheiro excede upload_max_filesize no php.ini.',
-        UPLOAD_ERR_FORM_SIZE  => 'Ficheiro excede MAX_FILE_SIZE do formulário.',
-        UPLOAD_ERR_PARTIAL    => 'Ficheiro foi enviado apenas parcialmente.',
-        UPLOAD_ERR_NO_FILE    => 'Nenhum ficheiro foi enviado.',
-        UPLOAD_ERR_NO_TMP_DIR => 'Pasta temporária não encontrada.',
-        UPLOAD_ERR_CANT_WRITE => 'Falha ao escrever o ficheiro no disco.',
-        UPLOAD_ERR_EXTENSION  => 'Uma extensão PHP interrompeu o upload.',
-    ];
-    $codigo  = $arquivo['error'] ?? -1;
-    $detalhe = $erros_php[$codigo] ?? "Código de erro desconhecido: $codigo";
-    echo json_encode(['erro' => "Erro no upload do ficheiro: $detalhe"]);
+$tipo = $_POST['tipo'] ?? '';
+if (!in_array($tipo, ['video', 'imagem'], true)) {
+    echo json_encode(['erro' => 'Tipo de ficheiro inválido.']);
     exit;
 }
 
-if (!file_exists($arquivo['tmp_name']) || !is_readable($arquivo['tmp_name'])) {
-    echo json_encode(['erro' => 'Ficheiro temporário inacessível no servidor.']);
+// ── Validações básicas de tamanho/mime ──────────────────────────────────
+$tamanhoMax = $tipo === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024; // 100MB / 5MB
+if ($_FILES['arquivo']['size'] > $tamanhoMax) {
+    echo json_encode(['erro' => 'Ficheiro excede o tamanho máximo permitido.']);
     exit;
 }
+
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mime  = finfo_file($finfo, $_FILES['arquivo']['tmp_name']);
+finfo_close($finfo);
+
+$mimesPermitidos = $tipo === 'video'
+    ? ['video/mp4', 'video/webm', 'video/ogg']
+    : ['image/jpeg', 'image/png', 'image/webp'];
+
+if (!in_array($mime, $mimesPermitidos, true)) {
+    echo json_encode(['erro' => 'Formato de ficheiro não suportado (' . $mime . ').']);
+    exit;
+}
+
+$tmpOriginal = $_FILES['arquivo']['tmp_name'];
+$tmpCifrado  = tempnam(sys_get_temp_dir(), 'enc_');
 
 try {
-    if ($tipo === 'video') {
-        set_time_limit(300);
-        $result = $cloudinary->uploadApi()->upload(
-            $arquivo['tmp_name'],
-            ['resource_type' => 'video', 'folder' => 'videos/previas']
-        );
-    } else {
-        set_time_limit(120);
-        $result = $cloudinary->uploadApi()->upload(
-            $arquivo['tmp_name'],
-            ['resource_type' => 'image', 'folder' => 'videos/imagens']
-        );
-    }
+    // ── 1. Gerar material criptográfico único para este ficheiro ────────
+    $material = CryptoHelper::gerarMaterialParaNovoFicheiro();
 
-    if (empty($result['secure_url'])) {
-        echo json_encode(['erro' => 'A Cloudinary não devolveu uma URL válida.']);
-        exit;
-    }
+    // ── 2. Encriptar o ficheiro para um temporário local ─────────────────
+    CryptoHelper::encriptarFicheiro($tmpOriginal, $tmpCifrado, $material['file_key_raw'], $material['iv_hex']);
 
-    echo json_encode([
-        'url'       => $result['secure_url'],
-        'public_id' => $result['public_id'] ?? '',
+    // ── 3. Gerar public_id aleatório (nenhuma pista do conteúdo/nome) ────
+    $publicId = ($tipo === 'video' ? 'vp_' : 'ip_') . bin2hex(random_bytes(16));
+
+    // ── 4. Upload do blob cifrado como recurso "raw" ──────────────────────
+    $uploadApi = $cloudinary->uploadApi();
+    $resultado = $uploadApi->upload($tmpCifrado, [
+        'resource_type' => 'raw',
+        'public_id'     => $publicId,
+        'folder'        => 'encrypted_media', // pasta genérica, sem relação com o filme
+        'overwrite'     => false,
+        'use_filename'  => false,
+        'unique_filename' => false,
     ]);
 
-} catch (Exception $e) {
-    error_log("ERRO UPLOAD CLOUDINARY [$tipo]: " . $e->getMessage());
-    echo json_encode(['erro' => 'Erro ao enviar para a Cloudinary: ' . $e->getMessage()]);
+    if (empty($resultado['public_id'])) {
+        throw new RuntimeException('Cloudinary não devolveu public_id.');
+    }
+
+    // ── 5. Responder ao front-end com tudo o que precisa ser gravado na BD
+    //     (a chave em claro NUNCA é enviada — só key_enc, já cifrada) ─────
+    echo json_encode([
+        'public_id' => $resultado['public_id'],
+        'iv'        => $material['iv_hex'],
+        'key_enc'   => $material['key_enc_b64'],
+        'tipo'      => $tipo,
+        'mime'      => $mime,
+        'tamanho'   => filesize($tmpCifrado),
+    ]);
+
+} catch (Throwable $e) {
+    error_log('ERRO UPLOAD ENCRIPTADO: ' . $e->getMessage());
+    echo json_encode(['erro' => 'Falha ao processar o upload: ' . $e->getMessage()]);
+} finally {
+    // ── 6. Limpar temporários SEMPRE, mesmo em erro ───────────────────────
+    if (file_exists($tmpCifrado)) {
+        @unlink($tmpCifrado);
+    }
+    // Não apagamos $tmpOriginal manualmente — o PHP remove uploads tmp automaticamente no fim do request
 }

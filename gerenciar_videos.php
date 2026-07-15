@@ -428,9 +428,9 @@ $totalVis       = $conexao->query("SELECT COALESCE(SUM(visualizacoes), 0) FROM v
             <?= $v['ativo'] ? 'ATIVO' : 'INATIVO' ?>
         </span>
 
-        <?php if (!empty($v['caminho_imagem'])): ?>
-            <img src="<?= htmlspecialchars($v['caminho_imagem']) ?>" alt="Capa" loading="lazy" />
-        <?php else: ?>
+<?php if (!empty($v['caminho_imagem'])): ?>
+    <img src="stream_media.php?id=<?= (int)$v['id_video'] ?>&tipo=imagem" alt="Capa" loading="lazy" />
+<?php else: ?>
             <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#cbd5e0;">Sem imagem</div>
         <?php endif; ?>
 

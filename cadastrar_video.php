@@ -29,8 +29,8 @@ if (!isset($_SESSION['usuario'])) {
 $usuario = $_SESSION['usuario'];
 
 // ── Detectar se é chamada AJAX (fase 3) ──────────────────────────────────────
-// O JS envia sempre url_previa quando está na fase 3 de gravação na BD.
-$is_ajax = $_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['url_previa']);
+// ── CORRIGIDO ──
+$is_ajax = $_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['previa_public_id']);
 
 // ════════════════════════════════════════════════════════════════════════════
 //  BLOCO JSON — só corre quando é chamada AJAX
@@ -56,8 +56,13 @@ if ($is_ajax) {
     $duracao_raw             = trim($_POST['duracao']     ?? '');
     $duracao                 = $duracao_raw !== '' ? $duracao_raw : null;
     $categorias_selecionadas = $_POST['categorias']       ?? [];
-    $caminho_previa          = trim($_POST['url_previa']  ?? '');
-    $caminho_imagem          = trim($_POST['url_imagem']  ?? '');
+    $previa_public_id = trim($_POST['previa_public_id'] ?? '');
+    $previa_iv         = trim($_POST['previa_iv']        ?? '');
+    $previa_key_enc    = trim($_POST['previa_key_enc']   ?? '');
+
+    $imagem_public_id = trim($_POST['imagem_public_id'] ?? '');
+    $imagem_iv         = trim($_POST['imagem_iv']        ?? '');
+    $imagem_key_enc    = trim($_POST['imagem_key_enc']   ?? '');
 
     // ── Validações ────────────────────────────────────────────────────────
     if ($nome_video === '') {
@@ -76,18 +81,18 @@ if ($is_ajax) {
         ]);
         exit;
     }
-    if ($caminho_previa === '') {
+if ($previa_public_id === '' || $previa_iv === '' || $previa_key_enc === '') {
         echo json_encode([
             'status'   => 'erro',
-            'mensagem' => 'A URL da prévia não foi recebida. Tente novamente.',
+            'mensagem' => 'Os dados da prévia não foram recebidos corretamente. Tente novamente.',
             'debug'    => $dados_recebidos,
         ]);
         exit;
     }
-    if ($caminho_imagem === '') {
+    if ($imagem_public_id === '' || $imagem_iv === '' || $imagem_key_enc === '') {
         echo json_encode([
             'status'   => 'erro',
-            'mensagem' => 'A URL da imagem não foi recebida. Tente novamente.',
+            'mensagem' => 'Os dados da imagem não foram recebidos corretamente. Tente novamente.',
             'debug'    => $dados_recebidos,
         ]);
         exit;
@@ -97,10 +102,11 @@ if ($is_ajax) {
     try {
         $conexao->beginTransaction();
 
-        $stmt_video = $conexao->prepare("
+$stmt_video = $conexao->prepare("
             INSERT INTO video
-                (nome_video, descricao, preco, duracao, caminho_previa, id_usuario)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (nome_video, descricao, preco, duracao, caminho_previa,
+                 previa_public_id, previa_iv, previa_key_enc, id_usuario)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id_video
         ");
         $stmt_video->execute([
@@ -108,7 +114,10 @@ if ($is_ajax) {
             $descricao,
             $preco,
             $duracao,
-            $caminho_previa,
+            $previa_public_id,   // caminho_previa agora guarda o public_id, não uma URL
+            $previa_public_id,
+            $previa_iv,
+            $previa_key_enc,
             $usuario['id_usuario'],
         ]);
 
@@ -128,10 +137,11 @@ if ($is_ajax) {
         }
 
         // Imagem de destaque
-        $conexao->prepare(
-            "INSERT INTO video_imagem (id_video, caminho_imagem, imagem_principal)
-             VALUES (?, ?, true)"
-        )->execute([$id_video, $caminho_imagem]);
+$conexao->prepare(
+            "INSERT INTO video_imagem
+                (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc, imagem_principal)
+             VALUES (?, ?, ?, ?, ?, true)"
+        )->execute([$id_video, $imagem_public_id, $imagem_public_id, $imagem_iv, $imagem_key_enc]);
 
         $conexao->commit();
 
@@ -618,13 +628,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         resetOverlayBar('Imagem');
 
         try {
-            // ── Fase 1: Upload do vídeo ──────────────────────────────────
+            // // ── Fase 1: Upload do vídeo ──────────────────────────────────
+            // stepEl.textContent = 'Passo 1/3 — A enviar a prévia do vídeo…';
+            // const urlPrevia = await uploadComProgresso(filePrevia, 'video', 'Previa');
+
+            // // ── Fase 2: Upload da imagem ─────────────────────────────────
+            // stepEl.textContent = 'Passo 2/3 — A enviar a imagem de destaque…';
+            // const urlImagem = await uploadComProgresso(fileImagem, 'imagem', 'Imagem');
+
+            // // ── Fase 3: Gravar na BD (resposta JSON) ─────────────────────
+            // stepEl.textContent = 'Passo 3/3 — A guardar na base de dados…';
+
+            // const formData = new FormData(form);
+            // formData.delete('video_previa');
+            // formData.delete('imagem_destaque');
+// ── Fase 1: Upload do vídeo ──────────────────────────────────
             stepEl.textContent = 'Passo 1/3 — A enviar a prévia do vídeo…';
-            const urlPrevia = await uploadComProgresso(filePrevia, 'video', 'Previa');
+            const previaData = await uploadComProgresso(filePrevia, 'video', 'Previa');
 
             // ── Fase 2: Upload da imagem ─────────────────────────────────
             stepEl.textContent = 'Passo 2/3 — A enviar a imagem de destaque…';
-            const urlImagem = await uploadComProgresso(fileImagem, 'imagem', 'Imagem');
+            const imagemData = await uploadComProgresso(fileImagem, 'imagem', 'Imagem');
 
             // ── Fase 3: Gravar na BD (resposta JSON) ─────────────────────
             stepEl.textContent = 'Passo 3/3 — A guardar na base de dados…';
@@ -632,8 +656,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             const formData = new FormData(form);
             formData.delete('video_previa');
             formData.delete('imagem_destaque');
-            formData.append('url_previa', urlPrevia);
-            formData.append('url_imagem', urlImagem);
+
+            formData.append('previa_public_id', previaData.public_id);
+            formData.append('previa_iv',        previaData.iv);
+            formData.append('previa_key_enc',   previaData.key_enc);
+
+            formData.append('imagem_public_id', imagemData.public_id);
+            formData.append('imagem_iv',        imagemData.iv);
+            formData.append('imagem_key_enc',   imagemData.key_enc);
 
             const resp = await fetch(window.location.href, {
                 method: 'POST',
@@ -708,29 +738,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 updateBar(suffix, pct, e.loaded, e.total, speed);
             };
 
-            xhr.onload = function () {
-                if (xhr.status !== 200) {
-                    reject(new Error(`Erro HTTP ${xhr.status} no upload do ficheiro.`));
-                    return;
-                }
-                let data;
-                try {
-                    data = JSON.parse(xhr.responseText);
-                } catch (_) {
-                    reject(new Error('Resposta inválida do servidor de upload (não é JSON).'));
-                    return;
-                }
-                if (data.erro) {
-                    reject(new Error(data.erro));
-                    return;
-                }
-                if (!data.url) {
-                    reject(new Error('O servidor de upload não devolveu uma URL.'));
-                    return;
-                }
-                updateBar(suffix, 100, file.size, file.size, 0);
-                resolve(data.url);
-            };
+
+    xhr.onload = function () {
+        if (xhr.status !== 200) {
+            reject(new Error(`Erro HTTP ${xhr.status} no upload do ficheiro.`));
+            return;
+        }
+        let data;
+        try {
+            data = JSON.parse(xhr.responseText);
+        } catch (_) {
+            reject(new Error('Resposta inválida do servidor de upload (não é JSON).'));
+            return;
+        }
+        if (data.erro) {
+            reject(new Error(data.erro));
+            return;
+        }
+        if (!data.public_id || !data.iv || !data.key_enc) {
+            reject(new Error('O servidor de upload não devolveu os dados de encriptação esperados.'));
+            return;
+        }
+        updateBar(suffix, 100, file.size, file.size, 0);
+        resolve({
+            public_id: data.public_id,
+            iv:        data.iv,
+            key_enc:   data.key_enc,
+        });
+    };
 
             xhr.onerror   = () => reject(new Error('Erro de rede durante o upload.'));
             xhr.ontimeout = () => reject(new Error('Timeout: o upload demorou demasiado.'));

@@ -3,7 +3,7 @@
 //  editar_video.php
 //  — GET  : renderiza o formulário HTML com os dados actuais do vídeo
 //  — POST com ajax_request=1 : devolve JSON puro (fase AJAX)
-//  — POST sem ajax_request   : fallback HTML (sem JS)
+//  — POST sem ajax_request   : fallback HTML (sem JS) — só edita campos de texto
 // ════════════════════════════════════════════════════════════════════════════
 
 include "verifica_login.php";
@@ -50,9 +50,11 @@ if ($id_video <= 0) {
     exit;
 }
 
-// ── Buscar vídeo actual ───────────────────────────────────────────────────────
+// ── Buscar vídeo actual ────────────────────────────────────────────────────
+// IMPORTANTE: além de caminho_imagem, também trazemos os metadados de
+// encriptação da imagem (não vêm no v.* porque estão na tabela video_imagem).
 $stmt = $conexao->prepare(
-    "SELECT v.*, vi.caminho_imagem
+    "SELECT v.*, vi.caminho_imagem, vi.imagem_public_id, vi.imagem_iv, vi.imagem_key_enc
      FROM video v
      LEFT JOIN video_imagem vi ON v.id_video = vi.id_video AND vi.imagem_principal = true
      WHERE v.id_video = ?"
@@ -70,17 +72,17 @@ if (!$video) {
     exit;
 }
 
-// ── Categorias actuais do vídeo ───────────────────────────────────────────────
+// ── Categorias actuais do vídeo ──────────────────────────────────────────────
 $stmtCatAtual = $conexao->prepare("SELECT id_categoria FROM video_categoria WHERE id_video = ?");
 $stmtCatAtual->execute([$id_video]);
 $categorias_atuais = $stmtCatAtual->fetchAll(PDO::FETCH_COLUMN);
 
-// ── Lista de todas as categorias ─────────────────────────────────────────────
+// ── Lista de todas as categorias ────────────────────────────────────────────
 $lista_categorias = $conexao
     ->query("SELECT id_categoria, nome_categoria FROM categoria ORDER BY nome_categoria")
     ->fetchAll(PDO::FETCH_ASSOC);
 
-// ── Detectar se é chamada AJAX ────────────────────────────────────────────────
+// ── Detectar se é chamada AJAX ───────────────────────────────────────────────
 $is_ajax = $_SERVER["REQUEST_METHOD"] === "POST" && !empty($_POST['ajax_request']);
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -98,22 +100,27 @@ if ($is_ajax) {
     $remover_previa          = !empty($_POST['remover_previa']);
     $remover_imagem          = !empty($_POST['remover_imagem']);
 
-    // URLs vindas da Cloudinary (ou mantidas do vídeo actual se não houve novo upload)
-    $url_previa_nova = trim($_POST['url_previa_nova'] ?? '');
-    $url_imagem_nova = trim($_POST['url_imagem_nova'] ?? '');
+    // Dados vindos do upload_cloudinary.php (vazios se não houve novo upload)
+    $previa_public_id_novo = trim($_POST['previa_public_id_novo'] ?? '');
+    $previa_iv_novo         = trim($_POST['previa_iv_novo']         ?? '');
+    $previa_key_enc_novo    = trim($_POST['previa_key_enc_novo']    ?? '');
+
+    $imagem_public_id_novo = trim($_POST['imagem_public_id_novo'] ?? '');
+    $imagem_iv_novo         = trim($_POST['imagem_iv_novo']         ?? '');
+    $imagem_key_enc_novo    = trim($_POST['imagem_key_enc_novo']    ?? '');
 
     // Dados para debug em caso de erro
     $dados_recebidos = [
-        'id_video'        => $id_video,
-        'nome_video'      => $nome_video,
-        'descricao'       => $descricao,
-        'preco'           => $preco,
-        'duracao'         => $duracao,
-        'categorias'      => $categorias_selecionadas,
-        'remover_previa'  => $remover_previa,
-        'remover_imagem'  => $remover_imagem,
-        'url_previa_nova' => $url_previa_nova,
-        'url_imagem_nova' => $url_imagem_nova,
+        'id_video'              => $id_video,
+        'nome_video'            => $nome_video,
+        'descricao'             => $descricao,
+        'preco'                 => $preco,
+        'duracao'               => $duracao,
+        'categorias'            => $categorias_selecionadas,
+        'remover_previa'        => $remover_previa,
+        'remover_imagem'        => $remover_imagem,
+        'previa_public_id_novo' => $previa_public_id_novo,
+        'imagem_public_id_novo' => $imagem_public_id_novo,
     ];
 
     // ── Validações ────────────────────────────────────────────────────────
@@ -126,23 +133,37 @@ if ($is_ajax) {
         exit;
     }
 
-    // Determinar caminhos finais para a BD
-    // — Prévia: usa nova URL se foi enviada, remove se checkbox marcado, ou mantém a actual
-    if ($url_previa_nova !== '') {
-        $caminho_previa_final = $url_previa_nova;
+    // ── Determinar valores finais para a prévia (trio: public_id/iv/key_enc) ──
+    if ($previa_public_id_novo !== '') {
+        // Substituição por novo ficheiro
+        $previa_public_id_final = $previa_public_id_novo;
+        $previa_iv_final         = $previa_iv_novo;
+        $previa_key_enc_final    = $previa_key_enc_novo;
     } elseif ($remover_previa) {
-        $caminho_previa_final = null;
+        // Remoção sem substituição
+        $previa_public_id_final = null;
+        $previa_iv_final         = null;
+        $previa_key_enc_final    = null;
     } else {
-        $caminho_previa_final = $video['caminho_previa'];
+        // Mantém o que já existia
+        $previa_public_id_final = $video['previa_public_id'];
+        $previa_iv_final         = $video['previa_iv'];
+        $previa_key_enc_final    = $video['previa_key_enc'];
     }
 
-    // — Imagem: usa nova URL se foi enviada, ou mantém a actual (remoção sem substituição é tratada abaixo)
-    if ($url_imagem_nova !== '') {
-        $caminho_imagem_final = $url_imagem_nova;
+    // ── Determinar valores finais para a imagem (mesmo padrão) ──────────────
+    if ($imagem_public_id_novo !== '') {
+        $imagem_public_id_final = $imagem_public_id_novo;
+        $imagem_iv_final         = $imagem_iv_novo;
+        $imagem_key_enc_final    = $imagem_key_enc_novo;
     } elseif ($remover_imagem) {
-        $caminho_imagem_final = null;
+        $imagem_public_id_final = null;
+        $imagem_iv_final         = null;
+        $imagem_key_enc_final    = null;
     } else {
-        $caminho_imagem_final = $video['caminho_imagem'];
+        $imagem_public_id_final = $video['imagem_public_id'] ?? null;
+        $imagem_iv_final         = $video['imagem_iv'] ?? null;
+        $imagem_key_enc_final    = $video['imagem_key_enc'] ?? null;
     }
 
     // ── Verificar se houve alguma alteração ──────────────────────────────
@@ -152,8 +173,8 @@ if ($is_ajax) {
         $descricao               !== ($video['descricao'] ?? '')  ||
         $preco                   != $video['preco']          ||
         $duracao_raw             !== ($duracao_bd ?? '')     ||
-        $caminho_previa_final    !== $video['caminho_previa']||
-        $caminho_imagem_final    !== $video['caminho_imagem']||
+        $previa_public_id_final  !== $video['previa_public_id'] ||
+        $imagem_public_id_final  !== ($video['imagem_public_id'] ?? null) ||
         !empty(array_diff($categorias_selecionadas, $categorias_atuais)) ||
         !empty(array_diff($categorias_atuais, $categorias_selecionadas))
     );
@@ -167,23 +188,30 @@ if ($is_ajax) {
     try {
         $conexao->beginTransaction();
 
-        // Actualizar dados principais do vídeo
+        // Actualizar dados principais do vídeo + prévia
         $conexao->prepare("
             UPDATE video
-            SET nome_video = ?, descricao = ?, preco = ?, duracao = ?, caminho_previa = ?
+            SET nome_video = ?, descricao = ?, preco = ?, duracao = ?,
+                caminho_previa = ?, previa_public_id = ?, previa_iv = ?, previa_key_enc = ?
             WHERE id_video = ?
-        ")->execute([$nome_video, $descricao, $preco, $duracao, $caminho_previa_final, $id_video]);
+        ")->execute([
+            $nome_video, $descricao, $preco, $duracao,
+            $previa_public_id_final, $previa_public_id_final, $previa_iv_final, $previa_key_enc_final,
+            $id_video,
+        ]);
 
         // Actualizar imagem de destaque se mudou
-        if ($caminho_imagem_final !== $video['caminho_imagem']) {
+        if ($imagem_public_id_final !== ($video['imagem_public_id'] ?? null)) {
             // Remove registo anterior
             $conexao->prepare("DELETE FROM video_imagem WHERE id_video = ? AND imagem_principal = true")
                     ->execute([$id_video]);
             // Insere novo se há imagem
-            if ($caminho_imagem_final !== null) {
+            if ($imagem_public_id_final !== null) {
                 $conexao->prepare(
-                    "INSERT INTO video_imagem (id_video, caminho_imagem, imagem_principal) VALUES (?, ?, true)"
-                )->execute([$id_video, $caminho_imagem_final]);
+                    "INSERT INTO video_imagem
+                        (id_video, caminho_imagem, imagem_public_id, imagem_iv, imagem_key_enc, imagem_principal)
+                     VALUES (?, ?, ?, ?, ?, true)"
+                )->execute([$id_video, $imagem_public_id_final, $imagem_public_id_final, $imagem_iv_final, $imagem_key_enc_final]);
             }
         }
 
@@ -226,7 +254,8 @@ $redirecionar  = false;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Fallback sem JS — não há uploads para Cloudinary neste caminho,
-    // apenas actualiza os campos de texto e categorias.
+    // apenas actualiza os campos de texto e categorias (media não pode ser
+    // trocada sem JS, pois exige encriptação em 2 fases antes de gravar).
     $nome_video              = trim($_POST['nome_video']  ?? '');
     $descricao               = trim($_POST['descricao']   ?? '');
     $preco                   = floatval($_POST['preco']   ?? 0);
@@ -444,10 +473,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <div class="form-group">
                     <label>Prévia do Vídeo</label>
 
-                    <?php if (!empty($video['caminho_previa'])): ?>
+                    <?php if (!empty($video['previa_public_id'])): ?>
                         <div class="current-file" id="currentFilePrevia">
-                            <p>📹 <a href="<?= htmlspecialchars($video['caminho_previa']) ?>" target="_blank">Ver prévia actual</a></p>
-                            <video src="<?= htmlspecialchars($video['caminho_previa']) ?>"
+                            <p>📹 <a href="stream_media.php?id=<?= $id_video ?>&tipo=video" target="_blank">Ver prévia actual</a></p>
+                            <video src="stream_media.php?id=<?= $id_video ?>&tipo=video"
                                    controls style="max-width:400px;"></video>
                             <label class="remover-label">
                                 <input type="checkbox" name="remover_previa" id="removerPrevia">
@@ -486,10 +515,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <div class="form-group">
                     <label>Imagem de Destaque</label>
 
-                    <?php if (!empty($video['caminho_imagem'])): ?>
+                    <?php if (!empty($video['imagem_public_id'])): ?>
                         <div class="current-file" id="currentFileImagem">
-                            <p>🖼️ <a href="<?= htmlspecialchars($video['caminho_imagem']) ?>" target="_blank">Ver imagem actual</a></p>
-                            <img src="<?= htmlspecialchars($video['caminho_imagem']) ?>"
+                            <p>🖼️ <a href="stream_media.php?id=<?= $id_video ?>&tipo=imagem" target="_blank">Ver imagem actual</a></p>
+                            <img src="stream_media.php?id=<?= $id_video ?>&tipo=imagem"
                                  style="max-width:300px;">
                             <label class="remover-label">
                                 <input type="checkbox" name="remover_imagem" id="removerImagem">
@@ -687,34 +716,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (filePrevia) resetOverlayBar('Previa');
         if (fileImagem) resetOverlayBar('Imagem');
 
-        let urlPreviaNova = '';
-        let urlImagemNova = '';
+        // Valores por omissão: nenhum upload novo (mantém/ remove conforme checkboxes)
+        let previaNova = { public_id: '', iv: '', key_enc: '' };
+        let imagemNova = { public_id: '', iv: '', key_enc: '' };
 
         try {
             // ── Fase 1 (condicional): Upload da nova prévia ───────────────
             if (filePrevia) {
                 stepEl.textContent = 'A enviar nova prévia do vídeo…';
-                urlPreviaNova = await uploadComProgresso(filePrevia, 'video', 'Previa');
+                previaNova = await uploadComProgresso(filePrevia, 'video', 'Previa');
             }
 
             // ── Fase 2 (condicional): Upload da nova imagem ───────────────
             if (fileImagem) {
                 stepEl.textContent = 'A enviar nova imagem de destaque…';
-                urlImagemNova = await uploadComProgresso(fileImagem, 'imagem', 'Imagem');
+                imagemNova = await uploadComProgresso(fileImagem, 'imagem', 'Imagem');
             }
 
             // ── Fase final: Gravar na BD ──────────────────────────────────
             stepEl.textContent = 'A guardar alterações na base de dados…';
 
             const formData = new FormData(form);
-            // Remove ficheiros binários — as URLs já foram obtidas
+            // Remove ficheiros binários — os dados já foram obtidos
             formData.delete('video_previa');
             formData.delete('imagem_destaque');
             // Sinaliza que é chamada AJAX
             formData.append('ajax_request', '1');
-            // Envia as URLs obtidas (vazias se não houve upload)
-            formData.append('url_previa_nova', urlPreviaNova);
-            formData.append('url_imagem_nova', urlImagemNova);
+
+            // Envia os dados obtidos (vazios se não houve upload novo)
+            formData.append('previa_public_id_novo', previaNova.public_id);
+            formData.append('previa_iv_novo',         previaNova.iv);
+            formData.append('previa_key_enc_novo',    previaNova.key_enc);
+
+            formData.append('imagem_public_id_novo', imagemNova.public_id);
+            formData.append('imagem_iv_novo',         imagemNova.iv);
+            formData.append('imagem_key_enc_novo',    imagemNova.key_enc);
 
             const resp = await fetch(window.location.href, {
                 method: 'POST',
@@ -763,7 +799,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     });
 
-    // ── Upload de ficheiro para a Cloudinary ─────────────────────────────────
+    // ── Upload de ficheiro para a Cloudinary (encriptado no servidor) ──────
     function uploadComProgresso(file, tipo, suffix) {
         return new Promise((resolve, reject) => {
             const fd = new FormData();
@@ -797,12 +833,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     reject(new Error(data.erro));
                     return;
                 }
-                if (!data.url) {
-                    reject(new Error('O servidor de upload não devolveu uma URL.'));
+                if (!data.public_id || !data.iv || !data.key_enc) {
+                    reject(new Error('O servidor de upload não devolveu os dados de encriptação esperados.'));
                     return;
                 }
                 updateBar(suffix, 100, file.size, file.size, 0);
-                resolve(data.url);
+                resolve({
+                    public_id: data.public_id,
+                    iv:        data.iv,
+                    key_enc:   data.key_enc,
+                });
             };
 
             xhr.onerror   = () => reject(new Error('Erro de rede durante o upload.'));

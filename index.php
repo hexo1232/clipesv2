@@ -1387,10 +1387,10 @@ body {
     <div class="hero-bg">
         <?php if ($videoDestaque && !empty($videoDestaque['caminho_imagem'])): ?>
             <img
-                src="<?= htmlspecialchars($videoDestaque['caminho_imagem']) ?>"
-                class="hero-poster"
-                alt="<?= htmlspecialchars($videoDestaque['nome_video']) ?>"
-            >
+    src="stream_media.php?id=<?= (int)$videoDestaque['id_video'] ?>&tipo=imagem"
+    class="hero-poster"
+    alt="<?= htmlspecialchars($videoDestaque['nome_video']) ?>"
+>
         <?php else: ?>
             <div class="hero-fallback"></div>
         <?php endif; ?>
@@ -1595,26 +1595,23 @@ $link_telegram = $telegramBase . "?text=" . $mensagem_telegram;
 $link_telegram_js = json_encode($link_telegram, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $nome_video_js    = json_encode($v['nome_video'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-$caminho_previa_js = json_encode(
-    $v['caminho_previa'] ?? '',
-    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-);
+
                 ?>
 
                 <article class="video-card">
-                    <div
+
+<div
     class="video-thumbnail-wrapper preview-zone"
     data-id-video="<?= (int)$v['id_video'] ?>"
-    data-preview='<?= htmlspecialchars($v['caminho_previa'] ?? '', ENT_QUOTES, 'UTF-8') ?>'
-    onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
+    onclick='abrirPreview(<?= (int)$v["id_video"] ?>)'
 >
 <?php if (!empty($v['caminho_imagem'])): ?>
-    <img
-        src="<?= htmlspecialchars($v['caminho_imagem']) ?>"
-        class="video-thumbnail preview-cover"
-        alt="<?= htmlspecialchars($v['nome_video']) ?>"
-        loading="lazy"
-    >
+<img
+    src="stream_media.php?id=<?= (int)$v['id_video'] ?>&tipo=imagem"
+    class="video-thumbnail preview-cover"
+    alt="<?= htmlspecialchars($v['nome_video']) ?>"
+    loading="lazy"
+>
 <?php else: ?>
     <div class="no-thumb preview-cover">
         <i class="fas fa-film"></i>
@@ -1681,13 +1678,7 @@ $caminho_previa_js = json_encode(
 
                       <div class="action-buttons">
     <div class="action-row">
-<button
-    type="button"
-    onclick='abrirPreview(<?= (int)$v["id_video"] ?>, <?= $caminho_previa_js ?>)'
-    class="action-btn btn-preview"
->
-    <i class="far fa-play-circle"></i> Preview
-</button>
+<button type="button" onclick='abrirPreview(<?= (int)$v["id_video"] ?>)' class="action-btn btn-preview">
 
 <button
     type="button"
@@ -1939,23 +1930,7 @@ filterToggle.addEventListener('click', function () {
         : 'Show Filters';
 });
 
-// ── Preview modal ──
-function normalizarCaminhoVideo(caminho) {
-    if (!caminho) return '';
 
-    const limpo = String(caminho).trim();
-
-    if (
-        !limpo ||
-        limpo === 'null' ||
-        limpo === 'undefined' ||
-        limpo === '#'
-    ) {
-        return '';
-    }
-
-    return limpo;
-}
 
 function registrarVisualizacao(idVideo) {
     const fd = new FormData();
@@ -1968,18 +1943,14 @@ function registrarVisualizacao(idVideo) {
     }).catch(err => console.error('View register error:', err));
 }
 
-function abrirPreview(idVideo, caminho) {
-    const caminhoLimpo = normalizarCaminhoVideo(caminho);
 
-    if (!caminhoLimpo) {
-        alert('Preview unavailable for this video.');
-        return;
-    }
+function abrirPreview(idVideo) {
+    const src = `stream_media.php?id=${idVideo}&tipo=video`;
 
     pararPreviewsInline();
 
-    const modal = document.getElementById('modalPreview');
-    const player = document.getElementById('videoPreview');
+    const modal   = document.getElementById('modalPreview');
+    const player  = document.getElementById('videoPreview');
     const errorBox = document.getElementById('preview-error');
 
     errorBox.style.display = 'none';
@@ -1989,22 +1960,18 @@ function abrirPreview(idVideo, caminho) {
     player.removeAttribute('src');
     player.load();
 
-    console.log('Preview modal path:', caminhoLimpo);
-
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
 
-    player.src = caminhoLimpo;
+    player.src = src;
     player.load();
 
     player.oncanplay = function () {
-        player.play().catch(function (err) {
-            console.warn('Preview autoplay blocked:', err);
-        });
+        player.play().catch(err => console.warn('Preview autoplay blocked:', err));
     };
 
     player.onerror = function () {
-        console.error('Preview load error:', caminhoLimpo);
+        console.error('Preview load error:', src);
         player.style.display = 'none';
         errorBox.style.display = 'block';
     };
@@ -2049,21 +2016,20 @@ function pararPreviewsInline() {
 }
 
 function iniciarPreviewInline(zone) {
-    const caminho = normalizarCaminhoVideo(zone.dataset.preview);
+    const idVideo = zone.dataset.idVideo;
     const video = zone.querySelector('.inline-preview-video');
 
-    if (!caminho || !video) {
-        return;
-    }
+    if (!idVideo || !video) return;
+
+    const src = `stream_media.php?id=${idVideo}&tipo=video`;
 
     if (currentInlinePreview && currentInlinePreview !== zone) {
         pararPreviewsInline();
     }
-
     currentInlinePreview = zone;
 
-    if (video.getAttribute('src') !== caminho) {
-        video.src = caminho;
+    if (video.getAttribute('src') !== src) {
+        video.src = src;
         video.load();
     }
 
@@ -2126,3 +2092,5 @@ document.addEventListener('keydown', function (e) {
 
 </body>
 </html>
+
+
