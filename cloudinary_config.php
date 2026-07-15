@@ -1,4 +1,5 @@
 <?php
+//cloudinary_config.php
 require_once __DIR__ . '/vendor/autoload.php'; 
 use Cloudinary\Cloudinary;
 
@@ -16,3 +17,4 @@ return new Cloudinary([
         'secure' => true
     ]
 ]);
+

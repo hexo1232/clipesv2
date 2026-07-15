@@ -1,13 +1,7 @@
 <?php
-// upload_cloudinary.php
-// Recebe um ficheiro (video ou imagem), encripta localmente e envia
-// o blob cifrado para a Cloudinary como recurso "raw" (Cloudinary nunca
-// vê o conteúdo original).
-
 include "verifica_login.php";
 require_once __DIR__ . '/crypto_helper.php';
-$cloudinary = require_once __DIR__ . '/vendor/autoload.php'; 
-
+$cloudinary = require __DIR__ . '/cloudinary_config.php';   // ← CORRIGIDO
 
 header('Content-Type: application/json');
 
