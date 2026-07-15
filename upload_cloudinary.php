@@ -6,7 +6,8 @@
 
 include "verifica_login.php";
 require_once __DIR__ . '/crypto_helper.php';
-$cloudinary = require __DIR__ . '/cloudinary_config.php'; // o ficheiro que devolve `new Cloudinary(...)`
+$cloudinary = require_once __DIR__ . '/vendor/autoload.php'; 
+
 
 header('Content-Type: application/json');
 
